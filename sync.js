@@ -1,9 +1,6 @@
 import fetch from "node-fetch";
 import fs from "fs/promises";
-import path from "path";
-import dotenv from "dotenv";
-
-dotenv.config();
+import "dotenv/config";
 
 const TOGGL_API_TOKEN = process.env.TOGGL_API_TOKEN;
 const TOGGL_WORKSPACE_ID = process.env.TOGGL_WORKSPACE_ID;
@@ -50,6 +47,57 @@ async function togglRequest(endpoint) {
   return response.json();
 }
 
+// Get detailed time entries (not grouped summary)
+async function getWorkspaceTimeEntries(startDate, endDate) {
+  const auth = Buffer.from(`${TOGGL_API_TOKEN}:api_token`).toString("base64");
+
+  const response = await fetch(
+    `https://api.track.toggl.com/reports/api/v3/workspace/${TOGGL_WORKSPACE_ID}/search/time_entries`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        start_date: startDate,
+        end_date: endDate,
+        grouped: false,
+        include_time_entry_ids: true,
+        order_by: "date",
+        order_dir: "DESC",
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Toggl Reports API error: ${response.status} ${await response.text()}`,
+    );
+  }
+
+  const data = await response.json();
+
+  // Flatten the nested structure
+  const flatEntries = [];
+  for (const group of data) {
+    if (group.time_entries) {
+      for (const entry of group.time_entries) {
+        flatEntries.push({
+          ...entry,
+          task_id: group.task_id,
+          project_id: group.project_id,
+          user_id: group.user_id,
+          description: group.description,
+          billable: group.billable,
+        });
+      }
+    }
+  }
+
+  return flatEntries;
+}
+
 // Asana API helpers
 async function asanaRequest(endpoint, method = "GET", body = null) {
   const options = {
@@ -78,6 +126,7 @@ async function asanaRequest(endpoint, method = "GET", body = null) {
   return response.json();
 }
 
+// Get existing time entries from Asana task
 async function getAsanaTimeEntries(taskGid) {
   try {
     const response = await asanaRequest(
@@ -94,7 +143,8 @@ async function getAsanaTimeEntries(taskGid) {
 
 // Main sync function
 async function syncTogglToAsana(startDate, endDate) {
-  console.log(`\n🔄 Syncing Toggl → Asana (${startDate} to ${endDate})\n`);
+  console.log(`\n🔄 Syncing Toggl → Asana (${startDate} to ${endDate})`);
+  console.log(`   Syncing time entries from ALL workspace users\n`);
 
   // Load sync state
   const syncState = await loadSyncState();
@@ -102,13 +152,11 @@ async function syncTogglToAsana(startDate, endDate) {
     `📋 Loaded sync state: ${Object.keys(syncState).length} entries previously synced\n`,
   );
 
-  // 1. Get time entries from Toggl
-  console.log("📥 Fetching Toggl time entries...");
-  const timeEntries = await togglRequest(
-    `/me/time_entries?start_date=${startDate}&end_date=${endDate}`,
-  );
+  // 1. Get ALL workspace time entries (not just current user)
+  console.log("📥 Fetching workspace time entries...");
+  const timeEntries = await getWorkspaceTimeEntries(startDate, endDate);
 
-  console.log(`   Found ${timeEntries.length} total entries`);
+  console.log(`   Found ${timeEntries.length} total entries across all users`);
 
   // 2. Filter entries with task_id
   const entriesWithTasks = timeEntries.filter((entry) => entry.task_id);
@@ -123,6 +171,8 @@ async function syncTogglToAsana(startDate, endDate) {
     }
     taskMap.get(entry.task_id).push(entry);
   }
+
+  console.log(`📊 Processing ${taskMap.size} unique tasks...\n`);
 
   // 4. Process each task
   let synced = 0;
@@ -142,7 +192,9 @@ async function syncTogglToAsana(startDate, endDate) {
 
         console.log(`📌 Task: "${togglTask.name}"`);
         console.log(`   Asana GID: ${asanaTaskGid}`);
-        console.log(`   ${entries.length} time entries`);
+        console.log(
+          `   ${entries.length} time entries from ${new Set(entries.map((e) => e.user_id)).size} user(s)`,
+        );
 
         // Filter out already synced entries
         const entriesToSync = entries.filter((entry) => !syncState[entry.id]);
@@ -161,9 +213,9 @@ async function syncTogglToAsana(startDate, endDate) {
           `   ${existingEntries.length} existing time entries in Asana`,
         );
 
-        // Calculate total time
+        // Calculate total time (handle both 'seconds' and 'duration' fields)
         const totalSeconds = entriesToSync.reduce(
-          (sum, e) => sum + e.duration,
+          (sum, e) => sum + (e.seconds || e.duration || 0),
           0,
         );
         const totalMinutes = Math.round(totalSeconds / 60);
@@ -177,7 +229,10 @@ async function syncTogglToAsana(startDate, endDate) {
 
         // Send to Asana
         for (const entry of entriesToSync) {
-          const durationMinutes = Math.round(entry.duration / 60);
+          // Handle both Reports API (seconds) and regular API (duration)
+          const durationMinutes = Math.round(
+            (entry.seconds || entry.duration) / 60,
+          );
           const enteredOn = entry.start.split("T")[0];
 
           // Check if an entry with same date and duration already exists
@@ -224,6 +279,7 @@ async function syncTogglToAsana(startDate, endDate) {
             asana_task_gid: asanaTaskGid,
             duration_minutes: durationMinutes,
             entered_on: enteredOn,
+            user_id: entry.user_id,
           };
 
           console.log(`   ✅ Created ${durationMinutes} min on ${enteredOn}`);
@@ -257,9 +313,11 @@ async function syncTogglToAsana(startDate, endDate) {
   console.log(`   ${skipped} non-Asana tasks skipped`);
 }
 
-// For production: sync last 7 days
+// Sync last 30 days for all workspace users
 const today = new Date().toISOString().split("T")[0];
-const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000)
+  .toISOString()
+  .split("T")[0];
 
-console.log(`📅 Using date range: ${weekAgo} to ${today}\n`);
-syncTogglToAsana(weekAgo, today).catch(console.error);
+console.log(`📅 Using date range: ${thirtyDaysAgo} to ${today}\n`);
+syncTogglToAsana(thirtyDaysAgo, today).catch(console.error);
