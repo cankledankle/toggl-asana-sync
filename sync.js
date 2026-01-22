@@ -145,8 +145,9 @@ async function syncTogglToAsana(startDate, endDate) {
   console.log(`   ${skipped} tasks skipped`);
 }
 
-// Run the sync
-const today = new Date().toISOString().split("T")[0];
-const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+// Test with a wider range
+const startDate = "2026-01-15"; // Start from Jan 15
+const endDate = "2026-01-23"; // Through Jan 23
 
-syncTogglToAsana(yesterday, today).catch(console.error);
+console.log(`📅 Using date range: ${startDate} to ${endDate}\n`);
+syncTogglToAsana(startDate, endDate).catch(console.error);
