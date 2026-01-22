@@ -1,10 +1,29 @@
-// sync.js
 import fetch from "node-fetch";
+import fs from "fs/promises";
+import path from "path";
 
-// GitHub Actions provides env vars directly
 const TOGGL_API_TOKEN = process.env.TOGGL_API_TOKEN;
 const TOGGL_WORKSPACE_ID = process.env.TOGGL_WORKSPACE_ID;
 const ASANA_TOKEN = process.env.ASANA_TOKEN;
+
+// Track synced entries
+const SYNC_STATE_FILE = "synced-entries.json";
+
+// Load sync state
+async function loadSyncState() {
+  try {
+    const data = await fs.readFile(SYNC_STATE_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch (error) {
+    // File doesn't exist yet, return empty object
+    return {};
+  }
+}
+
+// Save sync state
+async function saveSyncState(state) {
+  await fs.writeFile(SYNC_STATE_FILE, JSON.stringify(state, null, 2));
+}
 
 // Toggl API helpers
 async function togglRequest(endpoint) {
@@ -60,6 +79,12 @@ async function asanaRequest(endpoint, method = "GET", body = null) {
 async function syncTogglToAsana(startDate, endDate) {
   console.log(`\n🔄 Syncing Toggl → Asana (${startDate} to ${endDate})\n`);
 
+  // Load sync state
+  const syncState = await loadSyncState();
+  console.log(
+    `📋 Loaded sync state: ${Object.keys(syncState).length} entries previously synced\n`,
+  );
+
   // 1. Get time entries from Toggl
   console.log("📥 Fetching Toggl time entries...");
   const timeEntries = await togglRequest(
@@ -85,6 +110,7 @@ async function syncTogglToAsana(startDate, endDate) {
   // 4. Process each task
   let synced = 0;
   let skipped = 0;
+  let alreadySynced = 0;
 
   for (const [taskId, entries] of taskMap) {
     try {
@@ -101,16 +127,30 @@ async function syncTogglToAsana(startDate, endDate) {
         console.log(`   Asana GID: ${asanaTaskGid}`);
         console.log(`   ${entries.length} time entries`);
 
-        // Sum up total time for this task
-        const totalSeconds = entries.reduce((sum, e) => sum + e.duration, 0);
+        // Filter out already synced entries
+        const entriesToSync = entries.filter((entry) => !syncState[entry.id]);
+
+        if (entriesToSync.length === 0) {
+          console.log(`   ⏭️  All entries already synced, skipping\n`);
+          alreadySynced++;
+          continue;
+        }
+
+        console.log(`   ${entriesToSync.length} new entries to sync`);
+
+        // Calculate total time
+        const totalSeconds = entriesToSync.reduce(
+          (sum, e) => sum + e.duration,
+          0,
+        );
         const totalMinutes = Math.round(totalSeconds / 60);
 
         console.log(
-          `   Total time: ${totalMinutes} minutes (${(totalMinutes / 60).toFixed(2)} hours)`,
+          `   Total new time: ${totalMinutes} minutes (${(totalMinutes / 60).toFixed(2)} hours)`,
         );
 
         // Send to Asana
-        for (const entry of entries) {
+        for (const entry of entriesToSync) {
           const durationMinutes = Math.round(entry.duration / 60);
           const enteredOn = entry.start.split("T")[0];
 
@@ -124,6 +164,14 @@ async function syncTogglToAsana(startDate, endDate) {
               },
             },
           );
+
+          // Mark as synced
+          syncState[entry.id] = {
+            synced_at: new Date().toISOString(),
+            asana_task_gid: asanaTaskGid,
+            duration_minutes: durationMinutes,
+            entered_on: enteredOn,
+          };
 
           console.log(`   ✅ Synced ${durationMinutes} min on ${enteredOn}`);
         }
@@ -140,9 +188,16 @@ async function syncTogglToAsana(startDate, endDate) {
     }
   }
 
-  console.log(`\n✨ Sync complete!`);
+  // Save sync state
+  await saveSyncState(syncState);
+  console.log(
+    `💾 Saved sync state: ${Object.keys(syncState).length} total entries tracked\n`,
+  );
+
+  console.log(`✨ Sync complete!`);
   console.log(`   ${synced} tasks synced`);
-  console.log(`   ${skipped} tasks skipped`);
+  console.log(`   ${alreadySynced} tasks already synced (skipped)`);
+  console.log(`   ${skipped} non-Asana tasks skipped`);
 }
 
 // Test with a wider range
