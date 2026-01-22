@@ -146,8 +146,8 @@ async function syncTogglToAsana(startDate, endDate) {
 }
 
 // Test with a wider range
-const startDate = "2026-01-15"; // Start from Jan 15
-const endDate = "2026-01-23"; // Through Jan 23
+const startDate = "2026-01-15";
+const endDate = "2026-01-23";
 
 console.log(`📅 Using date range: ${startDate} to ${endDate}\n`);
 syncTogglToAsana(startDate, endDate).catch(console.error);
