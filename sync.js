@@ -1,6 +1,9 @@
 import fetch from "node-fetch";
 import fs from "fs/promises";
 import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const TOGGL_API_TOKEN = process.env.TOGGL_API_TOKEN;
 const TOGGL_WORKSPACE_ID = process.env.TOGGL_WORKSPACE_ID;
@@ -75,6 +78,20 @@ async function asanaRequest(endpoint, method = "GET", body = null) {
   return response.json();
 }
 
+async function getAsanaTimeEntries(taskGid) {
+  try {
+    const response = await asanaRequest(
+      `/tasks/${taskGid}/time_tracking_entries`,
+    );
+    return response.data || [];
+  } catch (error) {
+    console.log(
+      `   ⚠️  Could not fetch existing time entries: ${error.message}`,
+    );
+    return [];
+  }
+}
+
 // Main sync function
 async function syncTogglToAsana(startDate, endDate) {
   console.log(`\n🔄 Syncing Toggl → Asana (${startDate} to ${endDate})\n`);
@@ -138,6 +155,12 @@ async function syncTogglToAsana(startDate, endDate) {
 
         console.log(`   ${entriesToSync.length} new entries to sync`);
 
+        // Get existing time entries from Asana
+        const existingEntries = await getAsanaTimeEntries(asanaTaskGid);
+        console.log(
+          `   ${existingEntries.length} existing time entries in Asana`,
+        );
+
         // Calculate total time
         const totalSeconds = entriesToSync.reduce(
           (sum, e) => sum + e.duration,
@@ -149,11 +172,39 @@ async function syncTogglToAsana(startDate, endDate) {
           `   Total new time: ${totalMinutes} minutes (${(totalMinutes / 60).toFixed(2)} hours)`,
         );
 
+        let created = 0;
+        let duplicates = 0;
+
         // Send to Asana
         for (const entry of entriesToSync) {
           const durationMinutes = Math.round(entry.duration / 60);
           const enteredOn = entry.start.split("T")[0];
 
+          // Check if an entry with same date and duration already exists
+          const alreadyExists = existingEntries.some(
+            (existing) =>
+              existing.entered_on === enteredOn &&
+              existing.duration_minutes === durationMinutes,
+          );
+
+          if (alreadyExists) {
+            console.log(
+              `   ⏭️  Already exists in Asana: ${durationMinutes} min on ${enteredOn}`,
+            );
+            duplicates++;
+
+            // Mark as synced without creating
+            syncState[entry.id] = {
+              synced_at: new Date().toISOString(),
+              asana_task_gid: asanaTaskGid,
+              duration_minutes: durationMinutes,
+              entered_on: enteredOn,
+              already_existed: true,
+            };
+            continue;
+          }
+
+          // Create new entry
           await asanaRequest(
             `/tasks/${asanaTaskGid}/time_tracking_entries`,
             "POST",
@@ -165,6 +216,8 @@ async function syncTogglToAsana(startDate, endDate) {
             },
           );
 
+          created++;
+
           // Mark as synced
           syncState[entry.id] = {
             synced_at: new Date().toISOString(),
@@ -173,8 +226,12 @@ async function syncTogglToAsana(startDate, endDate) {
             entered_on: enteredOn,
           };
 
-          console.log(`   ✅ Synced ${durationMinutes} min on ${enteredOn}`);
+          console.log(`   ✅ Created ${durationMinutes} min on ${enteredOn}`);
         }
+
+        console.log(
+          `   📊 ${created} created, ${duplicates} duplicates skipped`,
+        );
 
         synced++;
       } else {
@@ -200,9 +257,9 @@ async function syncTogglToAsana(startDate, endDate) {
   console.log(`   ${skipped} non-Asana tasks skipped`);
 }
 
-// Test with a wider range
-const startDate = "2026-01-15";
-const endDate = "2026-01-23";
+// For production: sync last 7 days
+const today = new Date().toISOString().split("T")[0];
+const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
 
-console.log(`📅 Using date range: ${startDate} to ${endDate}\n`);
-syncTogglToAsana(startDate, endDate).catch(console.error);
+console.log(`📅 Using date range: ${weekAgo} to ${today}\n`);
+syncTogglToAsana(weekAgo, today).catch(console.error);
