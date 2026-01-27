@@ -37,9 +37,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase
           git add synced-entries.json
           if ! git diff --cached --quiet; then
+            git pull --rebase --autostash
             git commit -m "chore: update sync state"
             git push
           fi
