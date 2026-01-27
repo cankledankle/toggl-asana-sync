@@ -5,6 +5,10 @@ on:
     - cron: "0 * * * *" # Every hour
   workflow_dispatch:
 
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -18,15 +22,6 @@ jobs:
         with:
           node-version: "20"
 
-      # Cache the sync state between runs
-      - name: Restore sync state
-        uses: actions/cache@v4
-        with:
-          path: synced-entries.json
-          key: sync-state-${{ github.run_number }}
-          restore-keys: |
-            sync-state-
-
       - name: Install dependencies
         run: npm install
 
@@ -36,3 +31,18 @@ jobs:
           TOGGL_WORKSPACE_ID: ${{ secrets.TOGGL_WORKSPACE_ID }}
           ASANA_TOKEN: ${{ secrets.ASANA_TOKEN }}
         run: npm run sync
+
+      - name: Pull latest changes before pushing
+        if: success()
+        run: git pull --rebase
+
+      - name: Commit and push sync state
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add synced-entries.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update sync state"
+            git push
+          fi

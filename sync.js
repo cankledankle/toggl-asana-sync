@@ -9,6 +9,9 @@ const ASANA_TOKEN = process.env.ASANA_TOKEN;
 // Track synced entries
 const SYNC_STATE_FILE = "synced-entries.json";
 
+// Pre-compute auth tokens to avoid Base64 encoding on every request
+const TOGGL_AUTH = Buffer.from(`${TOGGL_API_TOKEN}:api_token`).toString("base64");
+
 // Load sync state
 async function loadSyncState() {
   try {
@@ -27,12 +30,11 @@ async function saveSyncState(state) {
 
 // Toggl API helpers
 async function togglRequest(endpoint) {
-  const auth = Buffer.from(`${TOGGL_API_TOKEN}:api_token`).toString("base64");
   const response = await fetch(
     `https://api.track.toggl.com/api/v9${endpoint}`,
     {
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${TOGGL_AUTH}`,
         "Content-Type": "application/json",
       },
     },
@@ -49,14 +51,12 @@ async function togglRequest(endpoint) {
 
 // Get detailed time entries (not grouped summary)
 async function getWorkspaceTimeEntries(startDate, endDate) {
-  const auth = Buffer.from(`${TOGGL_API_TOKEN}:api_token`).toString("base64");
-
   const response = await fetch(
     `https://api.track.toggl.com/reports/api/v3/workspace/${TOGGL_WORKSPACE_ID}/search/time_entries`,
     {
       method: "POST",
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${TOGGL_AUTH}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -126,17 +126,27 @@ async function asanaRequest(endpoint, method = "GET", body = null) {
   return response.json();
 }
 
-// Get existing time entries from Asana task
-async function getAsanaTimeEntries(taskGid) {
+// Get existing time entries from Asana task (with caching to avoid repeated calls)
+async function getAsanaTimeEntries(taskGid, cache) {
+  // Check cache first
+  if (cache.has(taskGid)) {
+    return cache.get(taskGid);
+  }
+
   try {
     const response = await asanaRequest(
       `/tasks/${taskGid}/time_tracking_entries`,
     );
-    return response.data || [];
+    const entries = response.data || [];
+    // Store in cache for this sync session
+    cache.set(taskGid, entries);
+    return entries;
   } catch (error) {
     console.log(
       `   ⚠️  Could not fetch existing time entries: ${error.message}`,
     );
+    // Cache empty result to avoid retrying failed requests
+    cache.set(taskGid, []);
     return [];
   }
 }
@@ -151,6 +161,10 @@ async function syncTogglToAsana(startDate, endDate) {
   console.log(
     `📋 Loaded sync state: ${Object.keys(syncState).length} entries previously synced\n`,
   );
+
+  // Initialize session caches to minimize API calls
+  const togglTaskCache = new Map(); // Cache Toggl task lookups
+  const asanaTaskCache = new Map(); // Cache Asana existing entries per task
 
   // 1. Get ALL workspace time entries (not just current user)
   console.log("📥 Fetching workspace time entries...");
@@ -181,10 +195,17 @@ async function syncTogglToAsana(startDate, endDate) {
 
   for (const [taskId, entries] of taskMap) {
     try {
-      // Get task details from Toggl
-      const togglTask = await togglRequest(
-        `/workspaces/${TOGGL_WORKSPACE_ID}/projects/${entries[0].project_id}/tasks/${taskId}`,
-      );
+      // Check cache first before fetching from Toggl
+      let togglTask;
+      if (togglTaskCache.has(taskId)) {
+        togglTask = togglTaskCache.get(taskId);
+      } else {
+        // Fetch from Toggl and cache result
+        togglTask = await togglRequest(
+          `/workspaces/${TOGGL_WORKSPACE_ID}/projects/${entries[0].project_id}/tasks/${taskId}`,
+        );
+        togglTaskCache.set(taskId, togglTask);
+      }
 
       // Check if it's an Asana task
       if (togglTask.integration_provider === "asana") {
@@ -207,8 +228,8 @@ async function syncTogglToAsana(startDate, endDate) {
 
         console.log(`   ${entriesToSync.length} new entries to sync`);
 
-        // Get existing time entries from Asana
-        const existingEntries = await getAsanaTimeEntries(asanaTaskGid);
+        // Get existing time entries from Asana (uses session cache to avoid repeated calls)
+        const existingEntries = await getAsanaTimeEntries(asanaTaskGid, asanaTaskCache);
         console.log(
           `   ${existingEntries.length} existing time entries in Asana`,
         );
@@ -313,11 +334,9 @@ async function syncTogglToAsana(startDate, endDate) {
   console.log(`   ${skipped} non-Asana tasks skipped`);
 }
 
-// Sync last 30 days for all workspace users
+// Sync from Jan 23, 2026 to today to prevent duplicate entries
 const today = new Date().toISOString().split("T")[0];
-const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000)
-  .toISOString()
-  .split("T")[0];
+const syncStartDate = "2026-01-23";
 
-console.log(`📅 Using date range: ${thirtyDaysAgo} to ${today}\n`);
-syncTogglToAsana(thirtyDaysAgo, today).catch(console.error);
+console.log(`📅 Using date range: ${syncStartDate} to ${today}\n`);
+syncTogglToAsana(syncStartDate, today).catch(console.error);
