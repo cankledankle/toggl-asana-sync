@@ -1,10 +1,15 @@
-import fetch from "node-fetch";
 import fs from "fs/promises";
 import "dotenv/config";
 
 const TOGGL_API_TOKEN = process.env.TOGGL_API_TOKEN;
 const TOGGL_WORKSPACE_ID = process.env.TOGGL_WORKSPACE_ID;
 const ASANA_TOKEN = process.env.ASANA_TOKEN;
+
+// Validate required environment variables
+if (!TOGGL_API_TOKEN || !TOGGL_WORKSPACE_ID || !ASANA_TOKEN) {
+  console.error("❌ Missing required environment variables");
+  process.exit(1);
+}
 
 // Track synced entries
 const SYNC_STATE_FILE = "synced-entries.json";
