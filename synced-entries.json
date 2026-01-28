@@ -279,6 +279,13 @@
     "entered_on": "2026-01-28",
     "user_id": 11336626
   },
+  "4266697192": {
+    "synced_at": "2026-01-28T16:45:23.388Z",
+    "asana_task_gid": "1212960365290663",
+    "duration_minutes": 147,
+    "entered_on": "2026-01-28",
+    "user_id": 11336627
+  },
   "4266774272": {
     "synced_at": "2026-01-28T15:38:42.012Z",
     "asana_task_gid": "1212871416158584",
@@ -292,5 +299,61 @@
     "duration_minutes": 20,
     "entered_on": "2026-01-28",
     "user_id": 11336633
+  },
+  "4266885529": {
+    "synced_at": "2026-01-28T16:45:17.343Z",
+    "asana_task_gid": "1212594683058945",
+    "duration_minutes": 45,
+    "entered_on": "2026-01-28",
+    "user_id": 12397682
+  },
+  "4266889511": {
+    "synced_at": "2026-01-28T16:45:15.934Z",
+    "asana_task_gid": "1212594683058954",
+    "duration_minutes": 30,
+    "entered_on": "2026-01-28",
+    "user_id": 12397682
+  },
+  "4266893093": {
+    "synced_at": "2026-01-28T16:45:20.248Z",
+    "asana_task_gid": "1212594683058885",
+    "duration_minutes": 15,
+    "entered_on": "2026-01-28",
+    "user_id": 11336628
+  },
+  "4266898171": {
+    "synced_at": "2026-01-28T16:45:18.602Z",
+    "asana_task_gid": "1212797602673349",
+    "duration_minutes": 60,
+    "entered_on": "2026-01-28",
+    "user_id": 11331667
+  },
+  "4266899497": {
+    "synced_at": "2026-01-28T16:45:24.640Z",
+    "asana_task_gid": "1212594683058940",
+    "duration_minutes": 30,
+    "entered_on": "2026-01-27",
+    "user_id": 11331667
+  },
+  "4266906243": {
+    "synced_at": "2026-01-28T16:45:21.668Z",
+    "asana_task_gid": "1212926468856090",
+    "duration_minutes": 40,
+    "entered_on": "2026-01-28",
+    "user_id": 11336627
+  },
+  "4266935613": {
+    "synced_at": "2026-01-28T16:45:14.594Z",
+    "asana_task_gid": "1212950954081386",
+    "duration_minutes": 60,
+    "entered_on": "2026-01-28",
+    "user_id": 12397682
+  },
+  "4266937017": {
+    "synced_at": "2026-01-28T16:45:13.217Z",
+    "asana_task_gid": "1212950232451756",
+    "duration_minutes": 30,
+    "entered_on": "2026-01-28",
+    "user_id": 12397682
   }
 }
