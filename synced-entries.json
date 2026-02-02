@@ -642,5 +642,40 @@
     "duration_minutes": 30,
     "entered_on": "2026-02-02",
     "user_id": 12397682
+  },
+  "4273398535": {
+    "synced_at": "2026-02-02T23:34:18.824Z",
+    "asana_task_gid": "1212865898062101",
+    "duration_minutes": 75,
+    "entered_on": "2026-02-02",
+    "user_id": 11336633
+  },
+  "4273407900": {
+    "synced_at": "2026-02-02T23:34:14.514Z",
+    "asana_task_gid": "1212947443125138",
+    "duration_minutes": 15,
+    "entered_on": "2026-02-02",
+    "user_id": 11336633
+  },
+  "4273571385": {
+    "synced_at": "2026-02-02T23:34:17.124Z",
+    "asana_task_gid": "1212931022628224",
+    "duration_minutes": 15,
+    "entered_on": "2026-02-02",
+    "user_id": 11336633
+  },
+  "4273572007": {
+    "synced_at": "2026-02-02T23:34:15.978Z",
+    "asana_task_gid": "1212920536673721",
+    "duration_minutes": 15,
+    "entered_on": "2026-02-02",
+    "user_id": 11336633
+  },
+  "4273600891": {
+    "synced_at": "2026-02-02T23:34:13.523Z",
+    "asana_task_gid": "1212947443125138",
+    "duration_minutes": 30,
+    "entered_on": "2026-02-02",
+    "user_id": 11336633
   }
 }
