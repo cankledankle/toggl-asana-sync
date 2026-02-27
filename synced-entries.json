@@ -1874,5 +1874,12 @@
     "duration_minutes": 254,
     "entered_on": "2026-02-26",
     "user_id": 11336627
+  },
+  "4308317474": {
+    "synced_at": "2026-02-27T15:41:29.971Z",
+    "asana_task_gid": "1213362583100563",
+    "duration_minutes": 32,
+    "entered_on": "2026-02-27",
+    "user_id": 11336627
   }
 }
