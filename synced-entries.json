@@ -2357,5 +2357,26 @@
     "duration_minutes": 30,
     "entered_on": "2026-03-09",
     "user_id": 11336633
+  },
+  "4321389504": {
+    "synced_at": "2026-03-09T20:40:36.008Z",
+    "asana_task_gid": "1212078739729909",
+    "duration_minutes": 25,
+    "entered_on": "2026-03-09",
+    "user_id": 11336626
+  },
+  "4321345373": {
+    "synced_at": "2026-03-09T20:40:36.923Z",
+    "asana_task_gid": "1212078739729909",
+    "duration_minutes": 75,
+    "entered_on": "2026-03-09",
+    "user_id": 11336626
+  },
+  "4321385271": {
+    "synced_at": "2026-03-09T20:40:37.754Z",
+    "asana_task_gid": "1213479981792427",
+    "duration_minutes": 80,
+    "entered_on": "2026-03-09",
+    "user_id": 11336627
   }
 }
