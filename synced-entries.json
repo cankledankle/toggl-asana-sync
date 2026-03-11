@@ -2490,5 +2490,12 @@
     "duration_minutes": 30,
     "entered_on": "2026-03-11",
     "already_existed": true
+  },
+  "4325129464": {
+    "synced_at": "2026-03-11T22:31:57.679Z",
+    "asana_task_gid": "1212078739729909",
+    "duration_minutes": 30,
+    "entered_on": "2026-03-11",
+    "already_existed": true
   }
 }
