@@ -4205,5 +4205,12 @@
     "duration_minutes": 90,
     "entered_on": "2026-05-05",
     "already_existed": true
+  },
+  "4396897052": {
+    "synced_at": "2026-05-06T14:26:35.116Z",
+    "asana_task_gid": "1213830642627461",
+    "duration_minutes": 60,
+    "entered_on": "2026-05-06",
+    "user_id": 12397682
   }
 }
