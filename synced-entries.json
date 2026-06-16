@@ -5080,5 +5080,12 @@
     "duration_minutes": 15,
     "entered_on": "2026-06-15",
     "user_id": 12397682
+  },
+  "4448275000": {
+    "synced_at": "2026-06-16T16:00:05.855Z",
+    "asana_task_gid": "1215045837346928",
+    "duration_minutes": 15,
+    "entered_on": "2026-06-16",
+    "user_id": 12397682
   }
 }
